@@ -36,6 +36,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Windows.Interactivity, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL" />
     <Reference Include="System.Xml" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Core" />
@@ -54,6 +55,17 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Model\AsyncUserToken.cs" />
+    <Compile Include="Model\BufferManager.cs" />
+    <Compile Include="Model\MessageDeal.cs" />
+    <Compile Include="Model\MServer.cs" />
+    <Compile Include="Model\SocketAsyncEventArgsPool.cs" />
+    <Compile Include="MVVM\MyCommand.cs" />
+    <Compile Include="MVVM\MyCommandGeneric.cs" />
+    <Compile Include="MVVM\MyEventCommand.cs" />
+    <Compile Include="MVVM\NotifyObject.cs" />
+    <Compile Include="ViewModel\MainWindowViewModel.cs" />
+    <Compile Include="ViewModel\MServerViewModel.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -93,5 +105,6 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

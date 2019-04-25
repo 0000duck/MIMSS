@@ -2,11 +2,22 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:MIMSS"
+        xmlns:c1="clr-namespace:MyMVVM"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="MainWindow" Height="350" Width="500">
+
     <Grid>
-        
+        <Button Name="bt_listen" IsEnabled="{Binding BtListenIsable}" Content="{Binding BtlistenContent}" HorizontalAlignment="Left" Margin="327,11,0,0" VerticalAlignment="Top" Width="75" >
+            <i:Interaction.Triggers>
+                <i:EventTrigger EventName="Click">
+                    <c1:MyEventCommand Command="{Binding  BtListenStart}"/>
+                </i:EventTrigger>
+            </i:Interaction.Triggers>
+        </Button>
+        <TextBox Name="tb_endPoint" Text="{Binding TbEndPointText}" HorizontalAlignment="Left" Height="20" Margin="60,11,0,0" TextWrapping="Wrap"  VerticalAlignment="Top" Width="245"/>
+        <TextBox Name="tb_logPrint"  HorizontalAlignment="Left" VerticalScrollBarVisibility="Auto"  Text="{Binding Mserver.LogString}" Height="244" Margin="60,52,0,0" TextWrapping="Wrap"  VerticalAlignment="Top" Width="342"/>
+
     </Grid>
 </Window>
