@@ -268,7 +268,7 @@ namespace SocketAsyncEventArgsOfficeDemo
                     LogStringBuild.AppendFormat("The server has read a total of {0} bytes\n", m_totalBytesRead);
                     LogString = LogStringBuild.ToString();
 
-                    //处理数据
+                    //使用MessageDeal类处理数据
                     MessageDeal.ReceiveDeal(e);
 
                     if (token.sendPacketNum.Count() > 0)

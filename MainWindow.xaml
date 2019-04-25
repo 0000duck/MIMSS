@@ -17,7 +17,13 @@
             </i:Interaction.Triggers>
         </Button>
         <TextBox Name="tb_endPoint" Text="{Binding TbEndPointText}" HorizontalAlignment="Left" Height="20" Margin="60,11,0,0" TextWrapping="Wrap"  VerticalAlignment="Top" Width="245"/>
-        <TextBox Name="tb_logPrint"  HorizontalAlignment="Left" VerticalScrollBarVisibility="Auto"  Text="{Binding Mserver.LogString}" Height="244" Margin="60,52,0,0" TextWrapping="Wrap"  VerticalAlignment="Top" Width="342"/>
+        <TextBox Name="tb_logPrint"  HorizontalAlignment="Left" VerticalScrollBarVisibility="Auto"  Text="{Binding Mserver.LogString}" Height="244" Margin="60,52,0,0" TextWrapping="Wrap"  VerticalAlignment="Top" Width="342">
+            <i:Interaction.Triggers>
+                <i:EventTrigger EventName="TextChanged">
+                    <c1:MyEventCommand Command="{Binding  TbLogBoxAdd}"/>
+                </i:EventTrigger>
+            </i:Interaction.Triggers>
+        </TextBox>
 
     </Grid>
 </Window>

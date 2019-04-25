@@ -99,11 +99,11 @@ namespace MIMSS.ViewModel
             }
         }
 
-        private MyCommand tbLogBoxAdd;
-        public MyCommand TbLogBoxAdd
-        {
-            get
-        }
+        //private MyCommand tbLogBoxAdd;
+        //public MyCommand TbLogBoxAdd
+        //{
+        //    get
+        //}
 
 }
 }
