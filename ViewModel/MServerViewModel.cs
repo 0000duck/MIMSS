@@ -15,7 +15,7 @@ namespace MIMSS.ViewModel
     {
         public MServerViewModel()
         {
-            Mserver = new MServer(200, 1024);
+            Mserver =MServer.CreateInstance(200, 1024);
             BtListenIsable = true;
             BtlistenContent = "Listen";
             TbEndPointText = IPAddress.Any.ToString() + ":" + "5730";

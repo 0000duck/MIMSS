@@ -1,4 +1,5 @@
-﻿using MyMVVM;
+﻿using MIMSS.Model;
+using MyMVVM;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -28,6 +29,23 @@ namespace SocketAsyncEventArgsOfficeDemo
         Semaphore m_maxNumberAcceptedClients;       //多线程信号量
         Dictionary<string, SocketAsyncEventArgs> m_sendSaeaDic;   //保存发送SAEA
         List<AsyncUserToken> m_clientList; //客户端列表  
+        public DataBaseQuery dataBaseQuery;
+
+        private static MServer mServer = null;
+        public static MServer CreateInstance(int numConnections, int receiveBufferSize)
+        {
+            if (mServer == null)
+            {
+                Console.WriteLine("被创建");
+                mServer = new MServer(numConnections, receiveBufferSize);
+            }
+            return mServer;
+        }
+
+        public static MServer CreateInstance()
+        {
+            return mServer;
+        }
 
         private StringBuilder logStringBuild;
         public StringBuilder LogStringBuild
@@ -56,7 +74,7 @@ namespace SocketAsyncEventArgsOfficeDemo
         //
         //<param name = "numConnections">同时处理的最大连接数</param>
         //<param name = "receiveBufferSize">用于每个套接字操作的缓存区大小</param>
-        public MServer(int numConnections, int receiveBufferSize)
+        private MServer(int numConnections, int receiveBufferSize)
         {
             m_totalBytesRead = 0;               
             m_numConnectedSockets = 0;                  //已连接的客户端数量
@@ -72,7 +90,10 @@ namespace SocketAsyncEventArgsOfficeDemo
             m_sendSaeaDic = new Dictionary<string, SocketAsyncEventArgs>();         //初始化sendSAEA字典
             m_clientList = new List<AsyncUserToken>();      //初始化客户端列表
 
+            //初始化日志str
             logStringBuild = new StringBuilder();
+            //初始化数据库连接
+            dataBaseQuery = new DataBaseQuery("mylinedatabase", "127.0.0.1", "root", "lmbdyn1997725", "None");
         }
 
         //通过预分配可重用缓存区和上下文对象来初始化服务器。这些对象不需要
@@ -271,6 +292,8 @@ namespace SocketAsyncEventArgsOfficeDemo
                     //使用MessageDeal类处理数据
                     MessageDeal.ReceiveDeal(e);
 
+                    //这里每一次接收到数据后，就会调用发送函数的回调函数
+                    //那么后面服务端自己主动发送的时候，就需要自己主动调用了
                     if (token.sendPacketNum.Count() > 0)
                     {
                         //调用发送函数的回调函数
@@ -296,6 +319,23 @@ namespace SocketAsyncEventArgsOfficeDemo
             {
                 Console.WriteLine(xe.Message + "\r\n" + xe.StackTrace);
             }
+        }
+
+        public void SendMessage(int packageType, String str, SocketAsyncEventArgs e)
+        {
+            AsyncUserToken token = (AsyncUserToken)e.UserToken;
+            //这里是要获得字节数而不是元素数
+            int packageLen = System.Text.Encoding.Default.GetByteCount(str) + 8;
+            Console.WriteLine("包的大小为" + packageLen);
+            byte[] bType = System.BitConverter.GetBytes(packageType);
+            byte[] bLen = System.BitConverter.GetBytes(packageLen);
+            //将数据放入发送buffer
+            token.sendBuffer.AddRange(bType);
+            token.sendBuffer.AddRange(bLen);
+            token.sendBuffer.AddRange(System.Text.Encoding.Default.GetBytes(str));
+            //接下来可以调用发送函数的回调函数了
+            //下一次要发送多少数据
+            token.sendPacketNum.Add(packageLen);
         }
 
         //异步发送操作完成时调用此方法

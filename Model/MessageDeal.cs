@@ -11,6 +11,7 @@ namespace SocketAsyncEventArgsOfficeDemo
 {
     class MessageDeal
     {
+
         public enum messageType
         {
             landMessage = 1,
@@ -37,7 +38,7 @@ namespace SocketAsyncEventArgsOfficeDemo
             byte[] data = new byte[e.BytesTransferred];
             Array.Copy(e.Buffer, e.Offset, data, 0, e.BytesTransferred);
             //将数据放入receiveBuffer
-            //receiveBuffer使list<byte>类型的
+            //receiveBuffer是list<byte>类型的
             lock (token.receiveBuffer)
             {
                 token.receiveBuffer.AddRange(data);
@@ -50,6 +51,7 @@ namespace SocketAsyncEventArgsOfficeDemo
             {
                 return false;
             }
+            //如果packageLen长度为0，就得到包长
             else if (token.packageLen == 0)
             {
                 //得到包的类型
@@ -87,21 +89,25 @@ namespace SocketAsyncEventArgsOfficeDemo
                     break;
 
                 case messageType.registMessage:
-                    //可能的处理
+                    RegisMessDeal(e);
                     break;
 
                 default:
                     //可能的处理
                     break;
             }
+            //将这两个标志归零
+            token.packageLen = 0;
+            token.packageType = 0;
         }
 
         //登陆数据处理函数，未完成，这里直接先发一次数据
         public static void LandMessDeal(SocketAsyncEventArgs e)
         {
+            MServer mServer = MServer.CreateInstance();
             AsyncUserToken token = (AsyncUserToken)e.UserToken;
-            //得到一个完整的包的数据，放入新list
-            List<byte> onePackage = token.receiveBuffer.GetRange(8, token.packageLen);
+            //得到一个完整的包的数据，放入新list,第二个参数是数据长度，所以要减去8  
+            List<byte> onePackage = token.receiveBuffer.GetRange(8, token.packageLen - 8);
             //将复制出来的数据从receiveBuffer旧list中删除
             token.receiveBuffer.RemoveRange(0, token.packageLen);
             //list要先转换成数组，再转换成字符串
@@ -110,25 +116,61 @@ namespace SocketAsyncEventArgsOfficeDemo
             JObject obj = JObject.Parse(jsonStr);
             String userName = obj["UserName"].ToString();
             String passWord = obj["PassWord"].ToString();
-            MessageBox.Show(userName + passWord);
+            MessageBox.Show("登陆消息处理完毕");
+            MessageBox.Show("接收到的用户名和密码：\n"+userName + passWord);
 
             //查询数据库
 
+            
+            String str = "发送给客户端的测试数据";
+            ////这里是要获得字节数而不是元素数
+            //int packageLen = System.Text.Encoding.Default.GetByteCount(str) + 8;
+            //Console.WriteLine("包的大小为" + packageLen);
+            //byte[] bType = System.BitConverter.GetBytes(packageType);
+            //byte[] bLen = System.BitConverter.GetBytes(packageLen);
+            ////将数据放入发送buffer
+            //token.sendBuffer.AddRange(bType);
+            //token.sendBuffer.AddRange(bLen);
+            //token.sendBuffer.AddRange(System.Text.Encoding.Default.GetBytes(str));
+            ////接下来可以调用发送函数的回调函数了
+            ////下一次要发送多少数据
+            //token.sendPacketNum.Add(packageLen);
+            //Console.WriteLine("将信息保存进了sendBuffer");
+            mServer.SendMessage(1, str, e);
+        }
 
-            int packageType = 1;
-            String str = "asfafs";
-            int packageLen = str.Length + 8;
-            Console.WriteLine("包的大小为" + packageLen);
-            byte[] bType = System.BitConverter.GetBytes(packageType);
-            byte[] bLen = System.BitConverter.GetBytes(packageLen);
-            //将数据放入发送buffer
-            token.sendBuffer.AddRange(bType);
-            token.sendBuffer.AddRange(bLen);
-            token.sendBuffer.AddRange(System.Text.Encoding.Default.GetBytes(str));
-            //接下来可以调用发送函数的回调函数了
-            //下一次要发送多少数据
-            token.sendPacketNum.Add(packageLen);
-            Console.WriteLine("将信息保存进了sendBuffer");
+        public static void RegisMessDeal(SocketAsyncEventArgs e)
+        {
+            MServer mServer = MServer.CreateInstance();
+            AsyncUserToken token = (AsyncUserToken)e.UserToken;
+            //得到一个完整的包的数据，放入新list,第二个参数是数据长度，所以要减去8  
+            List<byte> onePackage = token.receiveBuffer.GetRange(8, token.packageLen - 8);
+            //将复制出来的数据从receiveBuffer旧list中删除
+            token.receiveBuffer.RemoveRange(0, token.packageLen);
+            //list要先转换成数组，再转换成字符串
+            String jsonStr = Encoding.Default.GetString(onePackage.ToArray());
+            //得到用户名和密码
+            JObject obj = JObject.Parse(jsonStr);
+            //MessageBox.Show(jsonStr);
+            //MessageBox.Show(obj["UserName"].ToString()+obj["PassWord"].ToString()+ obj["RealName"].ToString() +
+                                            //obj["Sex"].ToString() + obj["BirthDay"].ToString() + obj["Address"].ToString() +
+                                            //obj["Email"].ToString() + obj["PhoneNumber"].ToString() + obj["Remark"].ToString());
+
+            bool isRegist = mServer.dataBaseQuery.Register(obj["UserName"].ToString(), obj["PassWord"].ToString(), obj["RealName"].ToString(),
+                                            obj["Sex"].ToString(), obj["BirthDay"].ToString(), obj["Address"].ToString(),
+                                            obj["Email"].ToString(), obj["PhoneNumber"].ToString(), obj["Remark"].ToString());
+            JObject json = new JObject();
+            if (isRegist)
+            {
+                json["isRegist"] = "True";
+            }
+            else
+            {
+                json["isRegist"] = "False";
+            }
+            String sendStr = json.ToString();
+            //发送失败或者成功的消息
+            mServer.SendMessage(2, sendStr, e);
         }
     }
 }
