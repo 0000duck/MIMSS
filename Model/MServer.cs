@@ -85,7 +85,7 @@ namespace SocketAsyncEventArgsOfficeDemo
             //大小为：最大连接数量客户端  每个有读、写两块区域，大小都为receiveBufferSize
             m_bufferManager = new BufferManager(receiveBufferSize * numConnections * opsToPreEAlloc,
                                                 receiveBufferSize);
-            m_readWritePool = new SocketAsyncEventArgsPool(numConnections);     //初始化了SAEA对象池，最大容量为总连接数量的两倍
+            m_readWritePool = new SocketAsyncEventArgsPool(numConnections);     //初始化了SAEA对象池，最大容量为总连接数量的两倍，然而这里是一倍
             m_maxNumberAcceptedClients = new Semaphore(numConnections, numConnections);     //初始化信号量，param1为剩余数量，param2为总数量
             m_sendSaeaDic = new Dictionary<string, SocketAsyncEventArgs>();         //初始化sendSAEA字典
             m_clientList = new List<AsyncUserToken>();      //初始化客户端列表
@@ -226,6 +226,7 @@ namespace SocketAsyncEventArgsOfficeDemo
             ((AsyncUserToken)readEventArgs.UserToken).Remote = e.RemoteEndPoint;
 
             //弹出一个SAEA，这个SAEA是用来发送消息的
+            //TODO  弹出来而不是new一个   
             SocketAsyncEventArgs sendSaea = new SocketAsyncEventArgs();
             //将发送SAEA放入sendSaeaDic字典，方便以后使用
             m_sendSaeaDic.Add(e.AcceptSocket.RemoteEndPoint.ToString(), sendSaea);
@@ -275,6 +276,7 @@ namespace SocketAsyncEventArgsOfficeDemo
         //异步接收操作完成时调用此方法
         //如果远程主机关闭了连接，那么就关闭套接字
         //接收到了数据，将数据返回给客户端
+        //服务端的没用重复调用ProcessReceive函数，因为前面根本没有绑定。。
         private void ProcessReceive(SocketAsyncEventArgs e)
         {
             AsyncUserToken token = (AsyncUserToken)e.UserToken;
@@ -345,6 +347,7 @@ namespace SocketAsyncEventArgsOfficeDemo
         //<param name = "e"></param>
         private void ProcessSend(SocketAsyncEventArgs e)
         {
+            Console.WriteLine(e.SocketError);
             if (e.SocketError == SocketError.Success)
             {
                 //完成了将数据返回给客户端
@@ -372,8 +375,10 @@ namespace SocketAsyncEventArgsOfficeDemo
                 bool willRaiseEvent = token.Socket.SendAsync(e);
                 if (!willRaiseEvent)
                 {
+                    Console.WriteLine("调用了这个吗?");
                     ProcessSend(e);
                 }
+                Console.WriteLine("异步发送完毕");
             }
             else
             {
