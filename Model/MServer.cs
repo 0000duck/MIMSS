@@ -261,11 +261,11 @@ namespace SocketAsyncEventArgsOfficeDemo
             switch (e.LastOperation)
             {
                 case SocketAsyncOperation.Receive:
-                    Console.WriteLine("调用了一次回调函数 RECV");
+                    Console.WriteLine(sender.ToString() + "调用了一次回调函数 RECV");
                     ProcessReceive(e);
                     break;
                 case SocketAsyncOperation.Send:
-                    Console.WriteLine("调用了一次回调函数 SEND");
+                    Console.WriteLine(sender.ToString() + "调用了一次回调函数 SEND");
                     ProcessSend(e);
                     break;
                 default:
@@ -296,21 +296,24 @@ namespace SocketAsyncEventArgsOfficeDemo
 
                     //这里每一次接收到数据后，就会调用发送函数的回调函数
                     //那么后面服务端自己主动发送的时候，就需要自己主动调用了
-                    if (token.sendPacketNum.Count() > 0)
-                    {
-                        //调用发送函数的回调函数
-                        ProcessSend(m_sendSaeaDic[token.Socket.RemoteEndPoint.ToString()]);
-                    }
+                    //if (token.sendPacketNum.Count() > 0)
+                    //{
+                    //    //调用发送函数的回调函数
+                    //    ProcessSend(m_sendSaeaDic[token.Socket.RemoteEndPoint.ToString()]);
+                    //}
 
                     //将数据返回给客户端
                     //e.SetBuffer(e.Offset, e.BytesTransferred);
                     //这里是从读取到发送
                     Console.WriteLine("开始异步接收");
-                    bool willRaiseEvent = token.Socket.ReceiveAsync(e);
-                    if (!willRaiseEvent)
+                    lock (e)
                     {
-                        ProcessReceive(e);
-                    }
+                        bool willRaiseEvent = token.Socket.ReceiveAsync(e);
+                        if (!willRaiseEvent)
+                        {
+                            ProcessReceive(e);
+                        }
+                    }      
                 }
                 else
                 {
@@ -338,8 +341,12 @@ namespace SocketAsyncEventArgsOfficeDemo
             //接下来可以调用发送函数的回调函数了
             //下一次要发送多少数据
             token.sendPacketNum.Add(packageLen);
+            //调用发送函数
+            ProcessSend(e);
         }
 
+
+        //TODO 因为异步发送会遇到SAEA占用问题，所以改成了同步发送，那么sendSAEA是不是可以去掉？
         //异步发送操作完成时调用此方法
         //该方法在套接字上发出另一个接收以读取任何其他接收  ??
         //从客户端发送的数据
@@ -347,7 +354,17 @@ namespace SocketAsyncEventArgsOfficeDemo
         //<param name = "e"></param>
         private void ProcessSend(SocketAsyncEventArgs e)
         {
-            Console.WriteLine(e.SocketError);
+            if (((AsyncUserToken)e.UserToken).sendBuffer.Count == 0)
+            {
+                Console.WriteLine("没有剩余数据，退出");
+                return;
+            }
+            
+            //将SAEA变成发送的
+            e = m_sendSaeaDic[((AsyncUserToken)e.UserToken).Socket.RemoteEndPoint.ToString()];
+
+            Console.WriteLine("LastOperation = " + e.LastOperation);
+
             if (e.SocketError == SocketError.Success)
             {
                 //完成了将数据返回给客户端
@@ -369,25 +386,32 @@ namespace SocketAsyncEventArgsOfficeDemo
                 data = token.sendBuffer.ToArray();
                 token.sendBuffer.Clear();
 
-                e.SetBuffer(data, 0, data.Length);
+                //e.SetBuffer(data, 0, data.Length);
 
-                Console.WriteLine("开始异步发送 datasize:" + data.Count() + "data:" + System.Text.Encoding.UTF8.GetString(data));
-                bool willRaiseEvent = token.Socket.SendAsync(e);
-                if (!willRaiseEvent)
-                {
-                    Console.WriteLine("调用了这个吗?");
-                    ProcessSend(e);
-                }
-                Console.WriteLine("异步发送完毕");
+                Console.WriteLine("开始同步发送 datasize:" + data.Count() + "data:" + System.Text.Encoding.UTF8.GetString(data));
+                token.Socket.Send(data);
+
+
+                //Console.WriteLine("开始异步发送 datasize:" + data.Count() + "data:" + System.Text.Encoding.UTF8.GetString(data));
+
+                //bool willRaiseEvent = token.Socket.SendAsync(e);
+                //if (!willRaiseEvent)
+                //{
+                //    Console.WriteLine("调用了这个吗?");
+                //    ProcessSend(e);
+                //}
+
+                Console.WriteLine("同步发送完毕");
             }
             else
             {
                 CloseClientSocket(e);
-            }
+            }        
         }
 
         private void CloseClientSocket(SocketAsyncEventArgs e)
         {
+            Console.WriteLine("释放连接资源");
             AsyncUserToken token = e.UserToken as AsyncUserToken;
             string dicStr = token.Socket.RemoteEndPoint.ToString();
 
@@ -397,16 +421,18 @@ namespace SocketAsyncEventArgsOfficeDemo
                 token.Socket.Shutdown(SocketShutdown.Send);
             }
             //throws if client process has already closed
-            catch (Exception) { }
-            token.Socket.Close();
+            catch (Exception)
+            { token.Socket.Close(); }
 
             //原子操作，使m_numConnectedSockets减一
             Interlocked.Decrement(ref m_numConnectedSockets);
 
-            //释放SocktAsyncEventArg，然后可被重用到其他客户端(这里直接放入就行了)
+            
             //先释放分配的缓存区，然后从字典中删除sendSaea对象
             //m_bufferManager.FreeBuffer(m_sendSaeaDic[dicStr]);
             m_sendSaeaDic.Remove(dicStr);
+            Console.WriteLine("sendSaeaDic Count = " + m_sendSaeaDic.Count());
+            //释放接收SocktAsyncEventArg，然后可被重用到其他客户端(这里直接放入就行了)
             m_readWritePool.Push(e);
 
             //从客户端列表中移除
@@ -416,5 +442,15 @@ namespace SocketAsyncEventArgsOfficeDemo
             LogStringBuild.AppendFormat("A client has benn disconnected from the server.There are {0} clients connected to the server\n", m_numConnectedSockets);
             LogString = LogStringBuild.ToString();
         }
+
+        //每隔3秒循环扫描已连接用户的好友列表和消息表，并将好友消息和消息发送给客户端
+        public void ScanFriendTable()
+        {
+            while (true)
+            {
+                Thread.Sleep(3000);
+            }
+        }
+
     }
 }

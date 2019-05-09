@@ -24,7 +24,6 @@ namespace SocketAsyncEventArgsOfficeDemo
             if (StickyDeal(e))
             {
                 //如果粘包处理成功，那么就可以开始分类处理
-                Console.WriteLine("开始分类处理");
                 ClassifyDeal(e);
             }
         }
@@ -116,27 +115,41 @@ namespace SocketAsyncEventArgsOfficeDemo
             JObject obj = JObject.Parse(jsonStr);
             String userName = obj["UserName"].ToString();
             String passWord = obj["PassWord"].ToString();
-            MessageBox.Show("登陆消息处理完毕");
-            MessageBox.Show("接收到的用户名和密码：\n"+userName + passWord);
 
             //查询数据库
+            bool isLand = mServer.dataBaseQuery.LoginQuery(obj["UserName"].ToString(), obj["PassWord"].ToString());
+            JObject json = new JObject();
+            //根据结果构建返回消息
+            if (isLand)
+            {
+                json["isLand"] = "True";
+            }
+            else
+            {
+                json["isLand"] = "False";
+            }
+            String sendStr = json.ToString();
+            mServer.SendMessage(1, sendStr, e);
 
+            if (isLand)
+            {
+                //然后查询该用户的详细信息，并发送给该用户，消息类型为3
+                sendStr = mServer.dataBaseQuery.UserInfoQuery(userName);
+                mServer.SendMessage(3, sendStr, e);
+
+                //并保存该用户的ID到userToken中
+                JObject user = JObject.Parse(sendStr);
+                token.UserId = user["id"].ToString();
+
+                //查询用户的好友信息，发送给该用户，信息类型为4
+                sendStr = mServer.dataBaseQuery.FriendInfoQuery(token.UserId);
+                mServer.SendMessage(4, sendStr, e);
+
+                //查询该用户的信息表是否有信息，并发送给该用户,消息类型为5
+                sendStr = mServer.dataBaseQuery.UserMessageQuery(token.UserId);
+                mServer.SendMessage(5, sendStr, e);
             
-            String str = "发送给客户端的测试数据";
-            ////这里是要获得字节数而不是元素数
-            //int packageLen = System.Text.Encoding.Default.GetByteCount(str) + 8;
-            //Console.WriteLine("包的大小为" + packageLen);
-            //byte[] bType = System.BitConverter.GetBytes(packageType);
-            //byte[] bLen = System.BitConverter.GetBytes(packageLen);
-            ////将数据放入发送buffer
-            //token.sendBuffer.AddRange(bType);
-            //token.sendBuffer.AddRange(bLen);
-            //token.sendBuffer.AddRange(System.Text.Encoding.Default.GetBytes(str));
-            ////接下来可以调用发送函数的回调函数了
-            ////下一次要发送多少数据
-            //token.sendPacketNum.Add(packageLen);
-            //Console.WriteLine("将信息保存进了sendBuffer");
-            mServer.SendMessage(1, str, e);
+            }      
         }
 
         public static void RegisMessDeal(SocketAsyncEventArgs e)

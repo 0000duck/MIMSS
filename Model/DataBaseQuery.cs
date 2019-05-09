@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
+using Newtonsoft.Json.Linq;
 
 namespace MIMSS.Model
 {
@@ -70,7 +71,7 @@ namespace MIMSS.Model
                 //利用mySql进行查询操作
                 MySqlCommand command = new MySqlCommand("select * from userid where username = @name and password = @pass", mySql);
                 command.Parameters.AddWithValue("@name", username);
-                command.Parameters.AddWithValue("@password", password);
+                command.Parameters.AddWithValue("@pass", password);
                 //执行查询操作并返回查询结果
                 MySqlDataReader mysqldr = command.ExecuteReader();
                 //Read()会返回bool类型，是否有下一条数据
@@ -86,6 +87,172 @@ namespace MIMSS.Model
             mySql.Close();
             return isLogin;
         }
+        
+        //查询用户信息
+        public String UserInfoQuery(string username)
+        {
+            MySqlConnection mySql = DataBaseQuery.GetDataConn();
+            mySql.Open();
+            JObject obj = new JObject();
+            try
+            {
+                //利用mySql进行查询操作
+                MySqlCommand command = new MySqlCommand("select * from userid where username = @name", mySql);
+                command.Parameters.AddWithValue("@name", username);
+                //执行查询操作并返回查询结果
+                MySqlDataReader mysqldr = command.ExecuteReader();
+                //取得id和username
+                mysqldr.Read();
+                obj["id"] = mysqldr[0].ToString();
+                obj["UserName"] = mysqldr[1].ToString();
+                mysqldr.Close();
+                //取得userinformation中的信息
+                command.CommandText = "select * from userinformation where id = @id";
+                command.Parameters.AddWithValue("@id", obj["id"].ToString());
+                mysqldr = command.ExecuteReader();
+                mysqldr.Read();
+                obj["RealName"] = mysqldr[1].ToString();
+                obj["Sex"] = mysqldr[2].ToString();
+                obj["BirthDay"] = mysqldr[3].ToString();
+                obj["Address"] = mysqldr[4].ToString();
+                obj["Email"] = mysqldr[5].ToString();
+                obj["PhoneNumber"] = mysqldr[6].ToString();
+                obj["Remark"] = mysqldr[7].ToString();
+                obj["isOk"] = "True";
+
+                mysqldr.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.Write("LoginQuery Error : " + ex);
+                obj["isOk"] = "False";
+            }
+            String str = obj.ToString();
+            mySql.Close();
+            return str;
+        }
+
+        //查询好友信息，保存在json数组中
+        public String FriendInfoQuery(string id)
+        {
+            MySqlConnection mySql = DataBaseQuery.GetDataConn();
+            mySql.Open();
+            JArray obj = new JArray();
+            try
+            {
+                String tablename = id + "friend";
+                //利用mySql进行查询操作
+                MySqlCommand command = mySql.CreateCommand();
+                command.CommandText = "select * from " + tablename;
+                //执行查询操作并返回查询结果
+                MySqlDataReader mysqldr = command.ExecuteReader();
+                //新建一个String List用来保存好友的id 
+                List<String> friendidList = new List<String>();
+                //取得好友id和分组
+                int i = 0;
+                while (mysqldr.Read())
+                {
+                    JObject temp = new JObject();
+                    obj.Add(temp);
+                    //将好友id加入friendidList
+                    friendidList.Add(mysqldr[0].ToString());
+                    //将好友分组加入JSON ARRAY
+                    obj[i]["id"] = mysqldr[0].ToString();
+                    obj[i]["Group"] = mysqldr[1].ToString();
+                    i++;
+                }
+                mysqldr.Close();
+
+                i = 0;
+                //现在开始循环查询好友的用户名
+                foreach (var friendid in friendidList)
+                {
+                    command.CommandText = "select * from userid where id = @id";
+                    command.Parameters.AddWithValue("@id", friendid);
+                    mysqldr = command.ExecuteReader();
+                    mysqldr.Read();
+
+                    //将好友的用户名添加进JSON数组
+                    obj[i]["UserName"] = mysqldr[1].ToString();
+                    i++;
+                    mysqldr.Close();
+                }
+                
+                i = 0;
+                //现在开始循环查询好友的详细信息
+                foreach (var friendid in friendidList)
+                {
+                    command.CommandText = "select * from userinformation where id = @friendid";
+                    command.Parameters.AddWithValue("@friendid", friendid);
+                    mysqldr = command.ExecuteReader();
+                    mysqldr.Read();
+
+                    //将好友的详细数据添加进JSON数组
+                    obj[i]["RealName"] = mysqldr[0].ToString();
+                    obj[i]["Sex"] = mysqldr[1].ToString();
+                    obj[i]["BirthDay"] = mysqldr[2].ToString();
+                    obj[i]["Address"] = mysqldr[3].ToString();
+                    obj[i]["Email"] = mysqldr[4].ToString();
+                    obj[i]["PhoneNumber"] = mysqldr[5].ToString();
+                    obj[i]["Remarks"] = mysqldr[6].ToString();
+                    i++;
+                    mysqldr.Close();
+                }
+
+                obj[0]["isOk"] = "True";
+                
+            }
+            catch (Exception ex)
+            {
+                Console.Write("FriendInfoQuery Error : " + ex);
+                obj[0]["isOk"] = "False";
+            }
+            String str = obj.ToString();
+            mySql.Close();
+            return str;
+        }
+
+        //查询用户信息表，保存在json数组中
+        public String UserMessageQuery(string id)
+        {
+            MySqlConnection mySql = DataBaseQuery.GetDataConn();
+            mySql.Open();
+            JArray obj = new JArray();
+            try
+            {
+                String tablename = id + "message";
+                //利用mySql进行查询操作
+                MySqlCommand command = mySql.CreateCommand();
+                command.CommandText = "select * from " + tablename;
+                //执行查询操作并返回查询结果
+                MySqlDataReader mysqldr = command.ExecuteReader();
+                //将数据放图
+                int i = 0;
+                while (mysqldr.Read())
+                {
+                    JObject temp = new JObject();
+                    obj.Add(temp);
+                    obj[i]["FriendId"] = mysqldr[0].ToString();
+                    obj[i]["Message"] = mysqldr[1].ToString();
+                    obj[i]["MessageDate"] = mysqldr[2].ToString();
+                    i++;
+                }
+                mysqldr.Close();
+
+                obj[0]["isOk"] = "True";
+
+                mysqldr.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.Write("UserMessageQuery Error : " + ex);
+                obj[0]["isOk"] = "False";
+            }
+            String str = obj.ToString();
+            mySql.Close();
+            return str;
+        }
+
         //用户注册
         public bool Register(string username, string password, string realname, string sex, string birthday, string address, string email, string phonenumber, string remarks)
         {

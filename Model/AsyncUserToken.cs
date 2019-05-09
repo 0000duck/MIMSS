@@ -53,6 +53,8 @@ namespace SocketAsyncEventArgsOfficeDemo
         ///</summary>>
         //public UserInfoModel UserInfo { get; set; }
 
+        public String UserId { get; set; }
+
         ///<summary>
         ///数据缓存区
         ///</summary>
