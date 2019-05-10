@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using Newtonsoft.Json.Linq;
@@ -33,15 +34,20 @@ namespace SocketAsyncEventArgsOfficeDemo
         {
             AsyncUserToken token = (AsyncUserToken)e.UserToken;
 
-            //复制数据
-            byte[] data = new byte[e.BytesTransferred];
-            Array.Copy(e.Buffer, e.Offset, data, 0, e.BytesTransferred);
-            //将数据放入receiveBuffer
-            //receiveBuffer是list<byte>类型的
-            lock (token.receiveBuffer)
+            if (!token.isCopy)
             {
-                token.receiveBuffer.AddRange(data);
+                //复制数据
+                byte[] data = new byte[e.BytesTransferred];
+                Array.Copy(e.Buffer, e.Offset, data, 0, e.BytesTransferred);
+                //将数据放入receiveBuffer
+                //receiveBuffer是list<byte>类型的
+                lock (token.receiveBuffer)
+                {
+                    token.receiveBuffer.AddRange(data);
+                }
+                token.isCopy = true;
             }
+                
 
             //粘包处理
 
@@ -144,6 +150,7 @@ namespace SocketAsyncEventArgsOfficeDemo
                 //查询用户的好友信息，发送给该用户，信息类型为4
                 sendStr = mServer.dataBaseQuery.FriendInfoQuery(token.UserId);
                 mServer.SendMessage(4, sendStr, e);
+
 
                 //查询该用户的信息表是否有信息，并发送给该用户,消息类型为5
                 sendStr = mServer.dataBaseQuery.UserMessageQuery(token.UserId);

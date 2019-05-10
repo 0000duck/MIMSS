@@ -292,7 +292,11 @@ namespace SocketAsyncEventArgsOfficeDemo
                     LogString = LogStringBuild.ToString();
 
                     //使用MessageDeal类处理数据
-                    MessageDeal.ReceiveDeal(e);
+                    do
+                    {
+                        MessageDeal.ReceiveDeal(e);
+                    }
+                    while (token.receiveBuffer.Count > 8 && token.packageLen == 0);
 
                     //这里每一次接收到数据后，就会调用发送函数的回调函数
                     //那么后面服务端自己主动发送的时候，就需要自己主动调用了
@@ -308,6 +312,7 @@ namespace SocketAsyncEventArgsOfficeDemo
                     Console.WriteLine("开始异步接收");
                     lock (e)
                     {
+                        token.isCopy = false;
                         bool willRaiseEvent = token.Socket.ReceiveAsync(e);
                         if (!willRaiseEvent)
                         {

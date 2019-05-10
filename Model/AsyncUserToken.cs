@@ -39,6 +39,11 @@ namespace SocketAsyncEventArgsOfficeDemo
         public int packageLen { get; set; }
 
         ///<symmary>
+        ///这次异步接收是否已经复制了一次数据
+        ///</symmary>
+        public bool isCopy { get; set; }
+
+        ///<symmary>
         ///包类型
         ///</symmary>
         public int packageType { get; set; }
@@ -68,6 +73,7 @@ namespace SocketAsyncEventArgsOfficeDemo
             this.sendPacketNum = new List<int>();
             this.packageLen = 0;
             this.packageType = 0;
+            this.isCopy = false;
         }
     }
 }
