@@ -165,10 +165,11 @@ namespace MIMSS.Model
 
                 i = 0;
                 //现在开始循环查询好友的用户名
+                
                 foreach (var friendid in friendidList)
                 {
-                    command.CommandText = "select * from userid where id = @id";
-                    command.Parameters.AddWithValue("@id", friendid);
+                    command.CommandText = "select * from userid where id =" + friendid;
+                    //command.Parameters.AddWithValue("@id", friendid);
                     mysqldr = command.ExecuteReader();
                     mysqldr.Read();
 
@@ -182,8 +183,8 @@ namespace MIMSS.Model
                 //现在开始循环查询好友的详细信息
                 foreach (var friendid in friendidList)
                 {
-                    command.CommandText = "select * from userinformation where id = @friendid";
-                    command.Parameters.AddWithValue("@friendid", friendid);
+                    command.CommandText = "select * from userinformation where id =" + friendid;
+                    //command.Parameters.AddWithValue("@friendid", friendid);
                     mysqldr = command.ExecuteReader();
                     mysqldr.Read();
 
