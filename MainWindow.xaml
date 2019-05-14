@@ -8,6 +8,13 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="350" Width="500">
 
+    <i:Interaction.Triggers>
+        <i:EventTrigger EventName="Closed">
+            <c1:MyEventCommand Command="{Binding  MainWindowClose}"/>
+        </i:EventTrigger>
+    </i:Interaction.Triggers>
+
+
     <Grid>
         <Button Name="bt_listen" IsEnabled="{Binding BtListenIsable}" Content="{Binding BtlistenContent}" HorizontalAlignment="Left" Margin="327,11,0,0" VerticalAlignment="Top" Width="75" >
             <i:Interaction.Triggers>

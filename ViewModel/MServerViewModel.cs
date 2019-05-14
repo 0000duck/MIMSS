@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -99,11 +100,36 @@ namespace MIMSS.ViewModel
             }
         }
 
+        private MyCommand mainWindowClose;
+        public MyCommand MainWindowClose
+        {
+            get
+            {
+                if (mainWindowClose == null)
+                    mainWindowClose = new MyCommand(
+                        new Action<object>(
+                            o =>
+                            {
+                                //如果线程处于运行状态，结束它
+                                if ((Mserver.scanThread != null) && (Mserver.scanThread.ThreadState == ThreadState.Running))
+                                {
+                                    Mserver.scanThread.Abort();
+                                }
+                                if (Mserver.isStart)
+                                {
+                                    Mserver.Stop();
+                                }
+                                System.Environment.Exit(0);
+                            }));
+                return mainWindowClose;
+            }
+        }
+
         //private MyCommand tbLogBoxAdd;
         //public MyCommand TbLogBoxAdd
         //{
         //    get
         //}
 
-}
+    }
 }

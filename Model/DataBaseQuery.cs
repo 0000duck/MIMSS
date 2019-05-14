@@ -213,7 +213,7 @@ namespace MIMSS.Model
             return str;
         }
 
-        //查询用户信息表，保存在json数组中
+        //查询用户消息表，保存在json数组中
         public String UserMessageQuery(string id)
         {
             MySqlConnection mySql = DataBaseQuery.GetDataConn();
@@ -224,7 +224,8 @@ namespace MIMSS.Model
                 String tablename = id + "message";
                 //利用mySql进行查询操作
                 MySqlCommand command = mySql.CreateCommand();
-                command.CommandText = "select * from " + tablename;
+                //只用查询还没有发送的
+                command.CommandText = "select * from " + tablename + " where issend=0";
                 //执行查询操作并返回查询结果
                 MySqlDataReader mysqldr = command.ExecuteReader();
                 //将数据放图
@@ -239,6 +240,17 @@ namespace MIMSS.Model
                     i++;
                 }
                 mysqldr.Close();
+
+                //将读取出来的信息更新为已读
+                command.CommandText = "update " + tablename + " set issend = 1";
+                command.ExecuteNonQuery(); 
+
+                if (obj.Count == 0)
+                {
+                    mysqldr.Close();
+                    mySql.Close();
+                    return "null";
+                }
 
                 obj[0]["isOk"] = "True";
 
@@ -304,7 +316,7 @@ namespace MIMSS.Model
                 command.CommandText = "create table " + id + "friend" + "( friendid INT NOT NULL,"+" friendgroup varchar(20) NOT NULL, "+"PRIMARY KEY ( friendid ))";
                 command.ExecuteNonQuery();
                 //建立消息表
-                command.CommandText = "create table " + id + "message" + "( friendid INT NOT NULL," + " message varchar(255) NOT NULL ," + "messagedate datetime NOT NULL" + ")";
+                command.CommandText = "create table " + id + "message" + "( friendid INT NOT NULL," + " message varchar(255) NOT NULL ," + "messagedate datetime NOT NULL," + "issend int(2) NOT NULL default 0" + ")";
                 command.ExecuteNonQuery();
                 //如果提交了，那么就返回true
                 transaction.Commit();
@@ -320,5 +332,73 @@ namespace MIMSS.Model
             mySql.Close();
             return isRegist;
         }
+
+        //保存聊天信息
+        public void SaveChat(String SendId, String Message, String MessageDate, String ReceiveId)
+        {
+            //拿到数据库连接
+            MySqlConnection mySql = DataBaseQuery.GetDataConn();
+            mySql.Open();
+
+            try
+            {
+                MySqlCommand command = mySql.CreateCommand();
+                command.CommandText = "insert into " + ReceiveId + "message" + " (friendid, message, messagedate) values (@friendid, @message, @messagedate)";
+                command.Parameters.AddWithValue("@friendid", SendId);
+                command.Parameters.AddWithValue("@message", Message);
+                command.Parameters.AddWithValue("@messagedate", MessageDate);
+                command.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Console.Write("UserMessageQuery Error : " + ex);
+            }
+            mySql.Close();
+        }
+
+        //用来模糊查询用户
+        public String QueryAddFriend(String searchString)
+        {
+            //拿到数据库连接
+            MySqlConnection mySql = DataBaseQuery.GetDataConn();
+            mySql.Open();
+            JArray jArray = new JArray();
+            try
+            {
+                MySqlCommand command = mySql.CreateCommand();
+                command.CommandText = "select * from userid where username like @searchString";
+                command.Parameters.AddWithValue("@searchString", "%"+ searchString +"%");
+                MySqlDataReader mysqldr = command.ExecuteReader();
+                while (mysqldr.Read())
+                {
+                    JObject obj = new JObject();
+                    jArray.Add(obj);
+                    obj["Id"] = mysqldr[0].ToString();
+                    obj["UserName"] = mysqldr[1].ToString();
+                }
+
+                if (jArray.Count == 0)
+                {
+                    JObject obj = new JObject();
+                    jArray.Add(obj);
+                    obj["isOk"] = "False";
+                    String fastr = jArray.ToString();
+                    return fastr;
+                }
+
+                jArray[0]["isOk"] = "True";
+                
+            }
+            catch (Exception ex)
+            {
+                jArray[0]["isOk"] = "False";
+                Console.Write("QueryAddFriend Error : " + ex);
+            }
+            mySql.Close();
+            String str = jArray.ToString();
+            return str;    
+        }
     }
+
+    
 }

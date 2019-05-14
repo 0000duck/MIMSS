@@ -30,6 +30,8 @@ namespace SocketAsyncEventArgsOfficeDemo
         Dictionary<string, SocketAsyncEventArgs> m_sendSaeaDic;   //保存发送SAEA
         List<AsyncUserToken> m_clientList; //客户端列表  
         public DataBaseQuery dataBaseQuery;
+        public Thread scanThread;      //这个线程用来扫描已连接客户端，并发送消息，程序结束时要干掉
+        public bool isStart = false;       //指示程序状态
 
         private static MServer mServer = null;
         public static MServer CreateInstance(int numConnections, int receiveBufferSize)
@@ -141,8 +143,13 @@ namespace SocketAsyncEventArgsOfficeDemo
 
             LogStringBuild.Append("开始监听\n");
             LogString = LogStringBuild.ToString();
+
+            //新开一个线程用作扫描新消息
+            scanThread = new Thread(ScanFriendTable);
+            scanThread.Start();
             //Console.WriteLine("按任意键终止服务器进程...");
             //Console.ReadKey();          //获取用户按下的下一个字符或者功能键
+            isStart = true;
         }
 
         public void Stop()
@@ -164,9 +171,11 @@ namespace SocketAsyncEventArgsOfficeDemo
             listenSocket.Close();
             int c_count = m_clientList.Count;
             lock (m_clientList) { m_clientList.Clear(); }
+            //直接退出程序算了
+            System.Environment.Exit(0);
 
             //if (ClientNumberChange != null)
-              //  ClientNumberChange(-c_count, null);
+            //  ClientNumberChange(-c_count, null);
         }
 
         //开始接收服务器请求
@@ -209,47 +218,56 @@ namespace SocketAsyncEventArgsOfficeDemo
         //starty()与ProcessAccept()构成一个接受连接的循环
         private void ProcessAccept(SocketAsyncEventArgs e)
         {
-            //原子操作，使m_numConnectedSockets增加1
-            Interlocked.Increment(ref m_numConnectedSockets);
-            //Console.WriteLine("Client connection accepted.There are {0} clients connected to the server", m_numConnectedSockets)
-            LogStringBuild.AppendFormat("Client connection accepted.There are {0} clients connected to the server\n", m_numConnectedSockets);
-            LogString = LogStringBuild.ToString();
-            
-            //弹出一个SAEA池中的SAEA,这个SAEA是用来接收消息的
-            SocketAsyncEventArgs readEventArgs = m_readWritePool.Pop();
+            //TODO  程序退出时会收到一个连接，原因不明
+            try
+            {
+                // 原子操作，使m_numConnectedSockets增加1
+                Interlocked.Increment(ref m_numConnectedSockets);
+                //Console.WriteLine("Client connection accepted.There are {0} clients connected to the server", m_numConnectedSockets)
+                LogStringBuild.AppendFormat("Client connection accepted.There are {0} clients connected to the server\n", m_numConnectedSockets);
+                LogString = LogStringBuild.ToString();
 
-            //将usertoken放入客户端列表
-            lock (m_clientList) { m_clientList.Add((AsyncUserToken)readEventArgs.UserToken); }
+                //弹出一个SAEA池中的SAEA,这个SAEA是用来接收消息的
+                SocketAsyncEventArgs readEventArgs = m_readWritePool.Pop();
+
+                //将usertoken放入客户端列表
+                lock (m_clientList) { m_clientList.Add((AsyncUserToken)readEventArgs.UserToken); }
 
             //获取已接受的客户端连接的套接字和IP端口放入用户信息中(receiveSaea)
             ((AsyncUserToken)readEventArgs.UserToken).Socket = e.AcceptSocket;
-            ((AsyncUserToken)readEventArgs.UserToken).Remote = e.RemoteEndPoint;
+                ((AsyncUserToken)readEventArgs.UserToken).Remote = e.RemoteEndPoint;
 
-            //弹出一个SAEA，这个SAEA是用来发送消息的
-            //TODO  弹出来而不是new一个   
-            SocketAsyncEventArgs sendSaea = new SocketAsyncEventArgs();
-            //将发送SAEA放入sendSaeaDic字典，方便以后使用
-            m_sendSaeaDic.Add(e.AcceptSocket.RemoteEndPoint.ToString(), sendSaea);
-            //分配缓存区
-            //m_bufferManager.SetBuffer(sendSaea);
+                //弹出一个SAEA，这个SAEA是用来发送消息的
+                //TODO  弹出来而不是new一个   
+                SocketAsyncEventArgs sendSaea = new SocketAsyncEventArgs();
+                //将发送SAEA放入sendSaeaDic字典，方便以后使用
+                m_sendSaeaDic.Add(e.AcceptSocket.RemoteEndPoint.ToString(), sendSaea);
+                //分配缓存区
+                //m_bufferManager.SetBuffer(sendSaea);
 
-            //将sendSaea指向readEentArgs的usertoken,这样，发送与接收的usertoken都是一个了
-            sendSaea.UserToken = (AsyncUserToken)readEventArgs.UserToken;
+                //将sendSaea指向readEentArgs的usertoken,这样，发送与接收的usertoken都是一个了
+                sendSaea.UserToken = (AsyncUserToken)readEventArgs.UserToken;
 
-            Console.WriteLine("The Client IP:" + e.RemoteEndPoint);
+                Console.WriteLine("The Client IP:" + e.RemoteEndPoint);
 
-            //e.AcceptSocket代表已接收到的客户端连接的socket
-            //将readEventArgs用于接收消息
-            //IO挂起后，返回true，同时引发参数的Completed事件   如果IO操作同步完成，返回false，并且不会引发Completed事件
-            //这里的ReceiveAsync是必须的，是为了进入读取->接收->读取的循环。当然，在后面也可以自己写成读取->读取的内循环
-            bool willRaiseEvent = e.AcceptSocket.ReceiveAsync(readEventArgs);
-            if (!willRaiseEvent)
-            {
-                ProcessReceive(readEventArgs);
+                //e.AcceptSocket代表已接收到的客户端连接的socket
+                //将readEventArgs用于接收消息
+                //IO挂起后，返回true，同时引发参数的Completed事件   如果IO操作同步完成，返回false，并且不会引发Completed事件
+                //这里的ReceiveAsync是必须的，是为了进入读取->接收->读取的循环。当然，在后面也可以自己写成读取->读取的内循环
+                bool willRaiseEvent = e.AcceptSocket.ReceiveAsync(readEventArgs);
+                if (!willRaiseEvent)
+                {
+                    ProcessReceive(readEventArgs);
+                }
+
+                //接收下一个连接
+                StartAccept(e);
             }
-
-            //接收下一个连接
-            StartAccept(e);
+            catch (Exception ex)
+            {
+                Console.WriteLine("ProcessAccept Error : " + ex);
+            }
+            
         }
 
         //当一个接收或者发送操作完成时调用此函数
@@ -448,12 +466,32 @@ namespace SocketAsyncEventArgsOfficeDemo
             LogString = LogStringBuild.ToString();
         }
 
+        //TODO  这个函数要完善
         //每隔3秒循环扫描已连接用户的好友列表和消息表，并将好友消息和消息发送给客户端
         public void ScanFriendTable()
         {
             while (true)
             {
-                Thread.Sleep(3000);
+                Thread.Sleep(1000);
+                if (m_clientList.Count > 0)
+                {
+                    //当客户端连接时，m_clienList的总数就会加1，但是此时还不知道用户的Id
+                    
+                    foreach (var mclien in m_clientList)
+                    {
+                        //id不为空的时候才查询
+                        if (mclien.UserId != null)
+                        {
+                            //查询该用户的信息表是否有信息，并发送给该用户,消息类型为5
+                            String sendStr = mServer.dataBaseQuery.UserMessageQuery(mclien.UserId);
+                            //有数据才发
+                            if (sendStr.Equals("null") != true)
+                            {
+                                mServer.SendMessage(5, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
+                            }
+                        }                       
+                    }
+                }              
             }
         }
 

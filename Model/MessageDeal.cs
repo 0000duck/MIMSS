@@ -16,7 +16,10 @@ namespace SocketAsyncEventArgsOfficeDemo
         public enum messageType
         {
             landMessage = 1,
-            registMessage = 2
+            registMessage = 2,
+            chatMessage = 6,
+            friendSearchMessage = 7,
+            friendRequestMessage = 9
         }
 
         public static void ReceiveDeal(SocketAsyncEventArgs e)
@@ -97,6 +100,18 @@ namespace SocketAsyncEventArgsOfficeDemo
                     RegisMessDeal(e);
                     break;
 
+                case messageType.chatMessage:
+                    ChatMessDeal(e);
+                    break;
+
+                case messageType.friendSearchMessage:
+                    FriendSearchMessDeal(e);
+                    break;
+
+                case messageType.friendRequestMessage:
+                    FriendRequestMess(e);
+                    break;
+
                 default:
                     //可能的处理
                     break;
@@ -154,7 +169,12 @@ namespace SocketAsyncEventArgsOfficeDemo
 
                 //查询该用户的信息表是否有信息，并发送给该用户,消息类型为5
                 sendStr = mServer.dataBaseQuery.UserMessageQuery(token.UserId);
-                mServer.SendMessage(5, sendStr, e);
+                //有数据才发
+                if (sendStr.Equals("null") != true)
+                {
+                    mServer.SendMessage(5, sendStr, e);
+                }
+                
             
             }      
         }
@@ -191,6 +211,59 @@ namespace SocketAsyncEventArgsOfficeDemo
             String sendStr = json.ToString();
             //发送失败或者成功的消息
             mServer.SendMessage(2, sendStr, e);
+        }
+
+        public static void ChatMessDeal(SocketAsyncEventArgs e)
+        {
+            MServer mServer = MServer.CreateInstance();
+            AsyncUserToken token = (AsyncUserToken)e.UserToken;
+            //得到一个完整的包的数据，放入新list,第二个参数是数据长度，所以要减去8  
+            List<byte> onePackage = token.receiveBuffer.GetRange(8, token.packageLen - 8);
+            //将复制出来的数据从receiveBuffer旧list中删除
+            token.receiveBuffer.RemoveRange(0, token.packageLen);
+            //list要先转换成数组，再转换成字符串
+            String jsonStr = Encoding.Default.GetString(onePackage.ToArray());
+            //得到用户名和密码
+            JObject obj = JObject.Parse(jsonStr);
+
+            mServer.dataBaseQuery.SaveChat(token.UserId, obj["Message"].ToString(), obj["MessageDate"].ToString(), obj["ReceiveId"].ToString());
+
+        }
+
+        //客户端发送过来的请求查询
+        public static void FriendSearchMessDeal(SocketAsyncEventArgs e)
+        {
+            MServer mServer = MServer.CreateInstance();
+            AsyncUserToken token = (AsyncUserToken)e.UserToken;
+            //得到一个完整的包的数据，放入新list,第二个参数是数据长度，所以要减去8  
+            List<byte> onePackage = token.receiveBuffer.GetRange(8, token.packageLen - 8);
+            //将复制出来的数据从receiveBuffer旧list中删除
+            token.receiveBuffer.RemoveRange(0, token.packageLen);
+            //list要先转换成数组，再转换成字符串
+            String jsonStr = Encoding.Default.GetString(onePackage.ToArray());
+            //得到用户名和密码
+            JObject obj = JObject.Parse(jsonStr);
+            String searchString = obj["Search"].ToString();
+            //下面开始模糊查询，并得到结果
+            String sendStr = mServer.dataBaseQuery.QueryAddFriend(searchString);
+            mServer.SendMessage(8, sendStr, e);
+        }
+
+        //好友添加请求处理
+        public static void FriendRequestMess(SocketAsyncEventArgs e)
+        {
+            MServer mServer = MServer.CreateInstance();
+            AsyncUserToken token = (AsyncUserToken)e.UserToken;
+            //得到一个完整的包的数据，放入新list,第二个参数是数据长度，所以要减去8  
+            List<byte> onePackage = token.receiveBuffer.GetRange(8, token.packageLen - 8);
+            //将复制出来的数据从receiveBuffer旧list中删除
+            token.receiveBuffer.RemoveRange(0, token.packageLen);
+            //list要先转换成数组，再转换成字符串
+            String jsonStr = Encoding.Default.GetString(onePackage.ToArray());
+            //得到用户名和密码
+            JObject obj = JObject.Parse(jsonStr);
+
+
         }
     }
 }
