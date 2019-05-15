@@ -377,59 +377,67 @@ namespace SocketAsyncEventArgsOfficeDemo
         //<param name = "e"></param>
         private void ProcessSend(SocketAsyncEventArgs e)
         {
-            if (((AsyncUserToken)e.UserToken).sendBuffer.Count == 0)
+            try
             {
-                Console.WriteLine("没有剩余数据，退出");
-                return;
+                if (((AsyncUserToken)e.UserToken).sendBuffer.Count == 0)
+                {
+                    Console.WriteLine("没有剩余数据，退出");
+                    return;
+                }
+
+                //将SAEA变成发送的
+                e = m_sendSaeaDic[((AsyncUserToken)e.UserToken).Socket.RemoteEndPoint.ToString()];
+
+                Console.WriteLine("LastOperation = " + e.LastOperation);
+
+                if (e.SocketError == SocketError.Success)
+                {
+                    //完成了将数据返回给客户端
+                    AsyncUserToken token = (AsyncUserToken)e.UserToken;
+                    byte[] data;
+                    int count = token.sendBuffer.Count;
+
+                    //if ( count > 1024)
+                    //{
+                    //    data = token.sendBuffer.GetRange(0, 1024).ToArray();
+                    //    token.sendBuffer.RemoveRange(0, 1024);
+                    //}
+                    //else
+                    //{
+                    //    data = token.sendBuffer.GetRange(0, count).ToArray();
+                    //    token.sendBuffer.RemoveRange(0, count);
+                    //}
+
+                    data = token.sendBuffer.ToArray();
+                    token.sendBuffer.Clear();
+
+                    //e.SetBuffer(data, 0, data.Length);
+
+                    Console.WriteLine("开始同步发送 datasize:" + data.Count() + "data:" + System.Text.Encoding.UTF8.GetString(data));
+                    token.Socket.Send(data);
+
+
+                    //Console.WriteLine("开始异步发送 datasize:" + data.Count() + "data:" + System.Text.Encoding.UTF8.GetString(data));
+
+                    //bool willRaiseEvent = token.Socket.SendAsync(e);
+                    //if (!willRaiseEvent)
+                    //{
+                    //    Console.WriteLine("调用了这个吗?");
+                    //    ProcessSend(e);
+                    //}
+
+                    Console.WriteLine("同步发送完毕");
+                }
+                else
+                {
+                    CloseClientSocket(e);
+                }
             }
-            
-            //将SAEA变成发送的
-            e = m_sendSaeaDic[((AsyncUserToken)e.UserToken).Socket.RemoteEndPoint.ToString()];
-
-            Console.WriteLine("LastOperation = " + e.LastOperation);
-
-            if (e.SocketError == SocketError.Success)
+            catch (Exception ex)
             {
-                //完成了将数据返回给客户端
-                AsyncUserToken token = (AsyncUserToken)e.UserToken;
-                byte[] data;
-                int count = token.sendBuffer.Count;
-
-                //if ( count > 1024)
-                //{
-                //    data = token.sendBuffer.GetRange(0, 1024).ToArray();
-                //    token.sendBuffer.RemoveRange(0, 1024);
-                //}
-                //else
-                //{
-                //    data = token.sendBuffer.GetRange(0, count).ToArray();
-                //    token.sendBuffer.RemoveRange(0, count);
-                //}
-
-                data = token.sendBuffer.ToArray();
-                token.sendBuffer.Clear();
-
-                //e.SetBuffer(data, 0, data.Length);
-
-                Console.WriteLine("开始同步发送 datasize:" + data.Count() + "data:" + System.Text.Encoding.UTF8.GetString(data));
-                token.Socket.Send(data);
-
-
-                //Console.WriteLine("开始异步发送 datasize:" + data.Count() + "data:" + System.Text.Encoding.UTF8.GetString(data));
-
-                //bool willRaiseEvent = token.Socket.SendAsync(e);
-                //if (!willRaiseEvent)
-                //{
-                //    Console.WriteLine("调用了这个吗?");
-                //    ProcessSend(e);
-                //}
-
-                Console.WriteLine("同步发送完毕");
+                CloseClientSocket(e); ;
             }
-            else
-            {
-                CloseClientSocket(e);
-            }        
+                 
         }
 
         private void CloseClientSocket(SocketAsyncEventArgs e)
@@ -488,6 +496,26 @@ namespace SocketAsyncEventArgsOfficeDemo
                             if (sendStr.Equals("null") != true)
                             {
                                 mServer.SendMessage(5, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
+                            }
+
+                            //新的好友和新的好友请求
+                            //改成该用户在线就发送，没有在线就直接保存在表里面
+                            //好友状态不应该保存在客户端本地数据库里面，每次更新数据库代价太大，而是动态保存
+
+                            //查询该用户好友的信息
+                            sendStr = mServer.dataBaseQuery.FriendInfoQuery(mclien.UserId);
+                            //有数据才发
+                            if (sendStr.Equals("null") != true)
+                            {
+                                mServer.SendMessage(4, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
+                            }
+
+                            //查询该用户好友请求表
+                            sendStr = mServer.dataBaseQuery.FriendRequestQuery(mclien.UserId);
+                            //有数据才发
+                            if (sendStr.Equals("null") != true)
+                            {
+                                mServer.SendMessage(10, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
                             }
                         }                       
                     }

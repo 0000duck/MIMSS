@@ -19,7 +19,8 @@ namespace SocketAsyncEventArgsOfficeDemo
             registMessage = 2,
             chatMessage = 6,
             friendSearchMessage = 7,
-            friendRequestMessage = 9
+            friendRequestMessage = 9,
+            friendRequestAgreeMessage = 11
         }
 
         public static void ReceiveDeal(SocketAsyncEventArgs e)
@@ -50,7 +51,7 @@ namespace SocketAsyncEventArgsOfficeDemo
                 }
                 token.isCopy = true;
             }
-                
+
 
             //粘包处理
 
@@ -78,7 +79,7 @@ namespace SocketAsyncEventArgsOfficeDemo
             else
             {
                 return true;
-            } 
+            }
         }
 
         //对完整的数据进行分类处理
@@ -110,6 +111,10 @@ namespace SocketAsyncEventArgsOfficeDemo
 
                 case messageType.friendRequestMessage:
                     FriendRequestMess(e);
+                    break;
+
+                case messageType.friendRequestAgreeMessage:
+                    FriendRequestAgreeMess(e);
                     break;
 
                 default:
@@ -164,8 +169,10 @@ namespace SocketAsyncEventArgsOfficeDemo
 
                 //查询用户的好友信息，发送给该用户，信息类型为4
                 sendStr = mServer.dataBaseQuery.FriendInfoQuery(token.UserId);
-                mServer.SendMessage(4, sendStr, e);
-
+                if (sendStr.Equals("null") != true)
+                {
+                    mServer.SendMessage(4, sendStr, e);
+                }
 
                 //查询该用户的信息表是否有信息，并发送给该用户,消息类型为5
                 sendStr = mServer.dataBaseQuery.UserMessageQuery(token.UserId);
@@ -174,9 +181,16 @@ namespace SocketAsyncEventArgsOfficeDemo
                 {
                     mServer.SendMessage(5, sendStr, e);
                 }
-                
-            
-            }      
+
+                //查询该用户的好友请求表是否有信息，并发送给用户
+                sendStr = mServer.dataBaseQuery.FriendRequestQuery(token.UserId);
+                //有数据才发
+                if (sendStr.Equals("null") != true)
+                {
+                    mServer.SendMessage(10, sendStr, e);
+                }
+
+            }
         }
 
         public static void RegisMessDeal(SocketAsyncEventArgs e)
@@ -193,8 +207,8 @@ namespace SocketAsyncEventArgsOfficeDemo
             JObject obj = JObject.Parse(jsonStr);
             //MessageBox.Show(jsonStr);
             //MessageBox.Show(obj["UserName"].ToString()+obj["PassWord"].ToString()+ obj["RealName"].ToString() +
-                                            //obj["Sex"].ToString() + obj["BirthDay"].ToString() + obj["Address"].ToString() +
-                                            //obj["Email"].ToString() + obj["PhoneNumber"].ToString() + obj["Remark"].ToString());
+            //obj["Sex"].ToString() + obj["BirthDay"].ToString() + obj["Address"].ToString() +
+            //obj["Email"].ToString() + obj["PhoneNumber"].ToString() + obj["Remark"].ToString());
 
             bool isRegist = mServer.dataBaseQuery.Register(obj["UserName"].ToString(), obj["PassWord"].ToString(), obj["RealName"].ToString(),
                                             obj["Sex"].ToString(), obj["BirthDay"].ToString(), obj["Address"].ToString(),
@@ -263,7 +277,44 @@ namespace SocketAsyncEventArgsOfficeDemo
             //得到用户名和密码
             JObject obj = JObject.Parse(jsonStr);
 
+            //将请求信息填入对方的好友请求表
+            mServer.dataBaseQuery.SaveFriendRequest(token.UserId, obj["Id"].ToString());
+        }
 
+        //同意好友添加请求消息
+        public static void FriendRequestAgreeMess(SocketAsyncEventArgs e)
+        {
+            MServer mServer = MServer.CreateInstance();
+            AsyncUserToken token = (AsyncUserToken)e.UserToken;
+            //得到一个完整的包的数据，放入新list,第二个参数是数据长度，所以要减去8  
+            List<byte> onePackage = token.receiveBuffer.GetRange(8, token.packageLen - 8);
+            //将复制出来的数据从receiveBuffer旧list中删除
+            token.receiveBuffer.RemoveRange(0, token.packageLen);
+            //list要先转换成数组，再转换成字符串
+            String jsonStr = Encoding.Default.GetString(onePackage.ToArray());
+            //得到用户名和密码
+            JObject obj = JObject.Parse(jsonStr);
+
+            //删除好友请求表的信息
+            //MessageBox.Show("删除好友请求表信息");
+            mServer.dataBaseQuery.RemoveFriendQueste(token.UserId, obj["Id"].ToString());
+            //根据同意与否，双方是否添加好友
+            if (obj["isAgree"].ToString().Equals("True"))
+            {
+                mServer.dataBaseQuery.AddFriend(token.UserId, obj["Id"].ToString());
+                mServer.dataBaseQuery.AddFriend(obj["Id"].ToString(), token.UserId);
+
+                ////查询该用户好友的信息
+                //String sendStr = mServer.dataBaseQuery.FriendInfoQuery(token.UserId);
+                ////有数据才发
+                //if (sendStr.Equals("null") != true)
+                //{
+                //    mServer.SendMessage(4, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
+                //}
+                //发送这单个好友信息
+                //String sendStr = mServer.dataBaseQuery.OneFriendInfoQuery(token.UserId, obj["Id"].ToString());
+                //mServer.SendMessage(4, sendStr, e);
+            }
         }
     }
 }
