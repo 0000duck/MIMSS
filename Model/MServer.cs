@@ -27,8 +27,8 @@ namespace SocketAsyncEventArgsOfficeDemo
         int m_totalBytesRead;               //服务器接收到的总字符数
         int m_numConnectedSockets;          //连接到服务器的客户端总数
         Semaphore m_maxNumberAcceptedClients;       //多线程信号量
-        Dictionary<string, SocketAsyncEventArgs> m_sendSaeaDic;   //保存发送SAEA
-        List<AsyncUserToken> m_clientList; //客户端列表  
+        public Dictionary<string, SocketAsyncEventArgs> m_sendSaeaDic;   //保存发送SAEA
+        public List<AsyncUserToken> m_clientList; //客户端列表  
         public DataBaseQuery dataBaseQuery;
         public Thread scanThread;      //这个线程用来扫描已连接客户端，并发送消息，程序结束时要干掉
         public bool isStart = false;       //指示程序状态
@@ -480,7 +480,7 @@ namespace SocketAsyncEventArgsOfficeDemo
         {
             while (true)
             {
-                Thread.Sleep(1000);
+                Thread.Sleep(3000);
                 if (m_clientList.Count > 0)
                 {
                     //当客户端连接时，m_clienList的总数就会加1，但是此时还不知道用户的Id
@@ -498,25 +498,26 @@ namespace SocketAsyncEventArgsOfficeDemo
                                 mServer.SendMessage(5, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
                             }
 
+                            //TODO
                             //新的好友和新的好友请求
                             //改成该用户在线就发送，没有在线就直接保存在表里面
                             //好友状态不应该保存在客户端本地数据库里面，每次更新数据库代价太大，而是动态保存
 
-                            //查询该用户好友的信息
-                            sendStr = mServer.dataBaseQuery.FriendInfoQuery(mclien.UserId);
-                            //有数据才发
-                            if (sendStr.Equals("null") != true)
-                            {
-                                mServer.SendMessage(4, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
-                            }
+                            ////查询该用户好友的信息
+                            //sendStr = mServer.dataBaseQuery.FriendInfoQuery(mclien.UserId);
+                            ////有数据才发
+                            //if (sendStr.Equals("null") != true)
+                            //{
+                            //    mServer.SendMessage(4, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
+                            //}
 
-                            //查询该用户好友请求表
-                            sendStr = mServer.dataBaseQuery.FriendRequestQuery(mclien.UserId);
-                            //有数据才发
-                            if (sendStr.Equals("null") != true)
-                            {
-                                mServer.SendMessage(10, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
-                            }
+                            //////查询该用户好友请求表
+                            //sendStr = mServer.dataBaseQuery.FriendRequestQuery(mclien.UserId);
+                            ////有数据才发
+                            //if (sendStr.Equals("null") != true)
+                            //{
+                            //    mServer.SendMessage(10, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
+                            //}
                         }                       
                     }
                 }              

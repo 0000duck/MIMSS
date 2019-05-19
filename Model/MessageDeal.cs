@@ -20,7 +20,9 @@ namespace SocketAsyncEventArgsOfficeDemo
             chatMessage = 6,
             friendSearchMessage = 7,
             friendRequestMessage = 9,
-            friendRequestAgreeMessage = 11
+            friendRequestAgreeMessage = 11,
+            changeGroupMessage = 12,
+            deleteFriendMessage = 14
         }
 
         public static void ReceiveDeal(SocketAsyncEventArgs e)
@@ -117,6 +119,14 @@ namespace SocketAsyncEventArgsOfficeDemo
                     FriendRequestAgreeMess(e);
                     break;
 
+                case messageType.changeGroupMessage:
+                    ChangeGroupMess(e);
+                    break;
+
+                case messageType.deleteFriendMessage:
+                    DeleteFriendMess(e);
+                    break;
+
                 default:
                     //可能的处理
                     break;
@@ -169,10 +179,9 @@ namespace SocketAsyncEventArgsOfficeDemo
 
                 //查询用户的好友信息，发送给该用户，信息类型为4
                 sendStr = mServer.dataBaseQuery.FriendInfoQuery(token.UserId);
-                if (sendStr.Equals("null") != true)
-                {
-                    mServer.SendMessage(4, sendStr, e);
-                }
+                //这里将为null的判断删除了，即使好友为0也要发送好友信息，是为了清理已经删除了的好友
+                mServer.SendMessage(4, sendStr, e);
+ 
 
                 //查询该用户的信息表是否有信息，并发送给该用户,消息类型为5
                 sendStr = mServer.dataBaseQuery.UserMessageQuery(token.UserId);
@@ -279,6 +288,16 @@ namespace SocketAsyncEventArgsOfficeDemo
 
             //将请求信息填入对方的好友请求表
             mServer.dataBaseQuery.SaveFriendRequest(token.UserId, obj["Id"].ToString());
+
+            //如果对方在线，那么把好友请求信息发给对方
+            foreach (var mclient in mServer.m_clientList)
+            {
+                if (mclient.UserId.Equals(obj["Id"].ToString()))
+                {
+                    String sendStr = mServer.dataBaseQuery.FriendRequestQuery(obj["Id"].ToString());
+                    mServer.SendMessage(10, sendStr, mServer.m_sendSaeaDic[mclient.Socket.RemoteEndPoint.ToString()]);
+                }
+            }
         }
 
         //同意好友添加请求消息
@@ -311,9 +330,71 @@ namespace SocketAsyncEventArgsOfficeDemo
                 //{
                 //    mServer.SendMessage(4, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
                 //}
-                //发送这单个好友信息
-                //String sendStr = mServer.dataBaseQuery.OneFriendInfoQuery(token.UserId, obj["Id"].ToString());
-                //mServer.SendMessage(4, sendStr, e);
+                //将这个新好友的信息发给自己
+                String sendStr = mServer.dataBaseQuery.OneFriendInfoQuery(token.UserId, obj["Id"].ToString());
+                mServer.SendMessage(4, sendStr, e);
+                //如果这个新好友在线，那么也要把自己的信息发给他
+                foreach (var mclient in mServer.m_clientList)
+                {
+                    if (mclient.UserId.Equals(obj["Id"].ToString()))
+                    {
+                        sendStr = mServer.dataBaseQuery.OneFriendInfoQuery(obj["Id"].ToString(), token.UserId);
+                        mServer.SendMessage(4, sendStr, mServer.m_sendSaeaDic[mclient.Socket.RemoteEndPoint.ToString()]);
+                    }
+                }
+            }
+        }
+
+        //改变分组消息
+        public static void ChangeGroupMess(SocketAsyncEventArgs e)
+        {
+            MServer mServer = MServer.CreateInstance();
+            AsyncUserToken token = (AsyncUserToken)e.UserToken;
+            //得到一个完整的包的数据，放入新list,第二个参数是数据长度，所以要减去8  
+            List<byte> onePackage = token.receiveBuffer.GetRange(8, token.packageLen - 8);
+            //将复制出来的数据从receiveBuffer旧list中删除
+            token.receiveBuffer.RemoveRange(0, token.packageLen);
+            //list要先转换成数组，再转换成字符串
+            String jsonStr = Encoding.Default.GetString(onePackage.ToArray());
+            //得到用户名和密码
+            JObject obj = JObject.Parse(jsonStr);
+
+            mServer.dataBaseQuery.ChangeGroup(token.UserId, obj["FriendId"].ToString(), obj["Group"].ToString());
+
+            //将已经变化了分组的好友信息发送给客户端
+            String sendStr = mServer.dataBaseQuery.OneFriendInfoQuery(token.UserId, obj["FriendId"].ToString());
+            mServer.SendMessage(13, sendStr, e);
+        }
+
+        public static void DeleteFriendMess(SocketAsyncEventArgs e)
+        {
+            MServer mServer = MServer.CreateInstance();
+            AsyncUserToken token = (AsyncUserToken)e.UserToken;
+            //得到一个完整的包的数据，放入新list,第二个参数是数据长度，所以要减去8  
+            List<byte> onePackage = token.receiveBuffer.GetRange(8, token.packageLen - 8);
+            //将复制出来的数据从receiveBuffer旧list中删除
+            token.receiveBuffer.RemoveRange(0, token.packageLen);
+            //list要先转换成数组，再转换成字符串
+            String jsonStr = Encoding.Default.GetString(onePackage.ToArray());
+            //得到用户名和密码
+            JObject obj = JObject.Parse(jsonStr);
+
+            //先做两次数据库操作，将对方的ID从对方的好友表中删除
+            mServer.dataBaseQuery.DeleteFriend(token.UserId, obj["Id"].ToString());
+            mServer.dataBaseQuery.DeleteFriend(obj["Id"].ToString(), token.UserId);
+
+            //如果这个好友在线，那么把好友删除信息发给他。
+            //TODO， 这里改成查询数据库状态应该会好一些
+            foreach (var mclient in mServer.m_clientList)
+            {
+                if (mclient.UserId.Equals(obj["Id"].ToString()))
+                {
+                    JObject temp = new JObject();
+                    temp["Id"] = token.UserId;
+                    String sendStr = temp.ToString();
+
+                    mServer.SendMessage(15, sendStr, mServer.m_sendSaeaDic[mclient.Socket.RemoteEndPoint.ToString()]);
+                }
             }
         }
     }
