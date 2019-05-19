@@ -825,6 +825,61 @@ namespace MIMSS.Model
             mySql.Close();
             return str;
         }
+
+        //修改userinformation表中的信息
+        public void UpdateUserInfo(String UserId, String RealName, String Sex, String BirthDay, String Address, String Email, String PhoneNumber, String Remark)
+        {
+            Console.WriteLine("删除好友");
+            //拿到数据库连接
+            MySqlConnection mySql = DataBaseQuery.GetDataConn();
+            mySql.Open();
+
+            try
+            {
+                MySqlCommand command = mySql.CreateCommand();
+
+                command.CommandText = "update userinformation set realname=@realname, sex=@sex, birthday=@birthday, address=@address, email=@email, phonenumber=@phonenumber, remarks=@remark where id=@id";
+                command.Parameters.AddWithValue("@id", UserId);
+                command.Parameters.AddWithValue("@realname", RealName);
+                command.Parameters.AddWithValue("@sex", Sex);
+                command.Parameters.AddWithValue("@birthday", BirthDay);
+                command.Parameters.AddWithValue("@address", Address);
+                command.Parameters.AddWithValue("@email", Email);
+                command.Parameters.AddWithValue("@phonenumber", PhoneNumber);
+                command.Parameters.AddWithValue("@remark", Remark);
+                command.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Console.Write("UpdateUserInfo Error : " + ex);
+            }
+            mySql.Close();
+        }
+
+        public int UpdatePassWord(String UserId, String PassWord, String SPassWord)
+        {
+            Console.WriteLine("删除好友");
+            //拿到数据库连接
+            MySqlConnection mySql = DataBaseQuery.GetDataConn();
+            mySql.Open();
+            int i = 0;
+            try
+            {
+                MySqlCommand command = mySql.CreateCommand();
+
+                command.CommandText = "update userid set password = @spassword where id=@id and password=@password";
+                command.Parameters.AddWithValue("@id", UserId);
+                command.Parameters.AddWithValue("@password", PassWord);
+                command.Parameters.AddWithValue("@spassword", SPassWord);
+                i = command.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Console.Write("UpdateUserInfo Error : " + ex);
+            }
+            mySql.Close();
+            return i;
+        }
     }
 
     

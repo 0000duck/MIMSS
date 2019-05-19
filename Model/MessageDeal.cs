@@ -22,7 +22,9 @@ namespace SocketAsyncEventArgsOfficeDemo
             friendRequestMessage = 9,
             friendRequestAgreeMessage = 11,
             changeGroupMessage = 12,
-            deleteFriendMessage = 14
+            deleteFriendMessage = 14,
+            modeUserInfoMessage = 17,
+            modePassWordMessage = 18
         }
 
         public static void ReceiveDeal(SocketAsyncEventArgs e)
@@ -125,6 +127,14 @@ namespace SocketAsyncEventArgsOfficeDemo
 
                 case messageType.deleteFriendMessage:
                     DeleteFriendMess(e);
+                    break;
+
+                case messageType.modeUserInfoMessage:
+                    ModeUserInfoMess(e);
+                    break;
+
+                case messageType.modePassWordMessage:
+                    ModePassWordMess(e);
                     break;
 
                 default:
@@ -407,6 +417,51 @@ namespace SocketAsyncEventArgsOfficeDemo
                     mServer.SendMessage(15, sendStr, mServer.m_sendSaeaDic[mclient.Socket.RemoteEndPoint.ToString()]);
                 }
             }
+        }
+
+        public static void ModeUserInfoMess(SocketAsyncEventArgs e)
+        {
+            MServer mServer = MServer.CreateInstance();
+            AsyncUserToken token = (AsyncUserToken)e.UserToken;
+            //得到一个完整的包的数据，放入新list,第二个参数是数据长度，所以要减去8  
+            List<byte> onePackage = token.receiveBuffer.GetRange(8, token.packageLen - 8);
+            //将复制出来的数据从receiveBuffer旧list中删除
+            token.receiveBuffer.RemoveRange(0, token.packageLen);
+            //list要先转换成数组，再转换成字符串
+            String jsonStr = Encoding.Default.GetString(onePackage.ToArray());
+            //得到用户名和密码
+            JObject obj = JObject.Parse(jsonStr);
+
+            //直接修改数据库信息然后再发送给客户端就行了,然后客户端再做一下更新
+            mServer.dataBaseQuery.UpdateUserInfo(token.UserId, obj["RealName"].ToString(), obj["Sex"].ToString(), obj["BirthDay"].ToString(), obj["Address"].ToString(), obj["Email"].ToString(), obj["PhoneNumber"].ToString(), obj["Remark"].ToString());
+        }
+
+        public static void ModePassWordMess(SocketAsyncEventArgs e)
+        {
+            MServer mServer = MServer.CreateInstance();
+            AsyncUserToken token = (AsyncUserToken)e.UserToken;
+            //得到一个完整的包的数据，放入新list,第二个参数是数据长度，所以要减去8  
+            List<byte> onePackage = token.receiveBuffer.GetRange(8, token.packageLen - 8);
+            //将复制出来的数据从receiveBuffer旧list中删除
+            token.receiveBuffer.RemoveRange(0, token.packageLen);
+            //list要先转换成数组，再转换成字符串
+            String jsonStr = Encoding.Default.GetString(onePackage.ToArray());
+            //得到用户名和密码
+            JObject obj = JObject.Parse(jsonStr);
+
+            //直接操作数据库更改，如果没有更改，说明新密码错误
+            int result = mServer.dataBaseQuery.UpdatePassWord(token.UserId, obj["PassWord"].ToString(), obj["SPassWord"].ToString());
+            JObject retobj = new JObject();
+            if (result == 1)
+            {
+                retobj["isOK"] = "True";
+            }
+            else
+            {
+                retobj["isOK"] = "False";
+            }
+            String sendStr = retobj.ToString();
+            mServer.SendMessage(18, sendStr, e);
         }
     }
 }
