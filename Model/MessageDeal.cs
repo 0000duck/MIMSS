@@ -177,6 +177,9 @@ namespace SocketAsyncEventArgsOfficeDemo
                 JObject user = JObject.Parse(sendStr);
                 token.UserId = user["id"].ToString();
 
+                //将状态表中的好友状态改为在线，即状态为1
+                mServer.dataBaseQuery.SetStatus(token.UserId, 1);
+
                 //查询用户的好友信息，发送给该用户，信息类型为4
                 sendStr = mServer.dataBaseQuery.FriendInfoQuery(token.UserId);
                 //这里将为null的判断删除了，即使好友为0也要发送好友信息，是为了清理已经删除了的好友
@@ -189,6 +192,14 @@ namespace SocketAsyncEventArgsOfficeDemo
                 if (sendStr.Equals("null") != true)
                 {
                     mServer.SendMessage(5, sendStr, e);
+                }
+
+                //查询该用户好友的状态，发送给该用户，消息类型为16
+                sendStr = mServer.dataBaseQuery.UserFriendStatus(token.UserId);
+                //有数据才发
+                if (sendStr.Equals("null") != true)
+                {
+                    mServer.SendMessage(16, sendStr, e);
                 }
 
                 //查询该用户的好友请求表是否有信息，并发送给用户

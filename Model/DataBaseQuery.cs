@@ -726,6 +726,105 @@ namespace MIMSS.Model
             }
             mySql.Close();
         }
+
+        //更新状态表
+        public void SetStatus(String UserId, int status)
+        {
+            Console.WriteLine("更新好友状态表");
+            //拿到数据库连接
+            MySqlConnection mySql = DataBaseQuery.GetDataConn();
+            mySql.Open();
+
+            try
+            {
+                MySqlCommand command = mySql.CreateCommand();
+
+                command.CommandText = "update userstatus  set status =@status where id = @id";
+                command.Parameters.AddWithValue("@id", UserId);
+                command.Parameters.AddWithValue("@status", status);
+                command.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Console.Write("DeleteFriend Error : " + ex);
+            }
+            mySql.Close();
+        }
+
+        public String UserFriendStatus(String id)
+        {
+            MySqlConnection mySql = DataBaseQuery.GetDataConn();
+            mySql.Open();
+            JArray obj = new JArray();
+            try
+            {
+                String tablename = id + "friend";
+                //利用mySql进行查询操作
+                MySqlCommand command = mySql.CreateCommand();
+                command.CommandText = "select * from " + tablename;
+                //执行查询操作并返回查询结果
+                MySqlDataReader mysqldr = command.ExecuteReader();
+                //新建一个String List用来保存好友的id 
+                List<String> friendidList = new List<String>();
+                //取得好友id和分组
+                int i = 0;
+                while (mysqldr.Read())
+                {
+                    JObject temp = new JObject();
+                    obj.Add(temp);
+                    //将好友id加入friendidList
+                    friendidList.Add(mysqldr[0].ToString());
+                    //将好友分组加入JSON ARRAY
+                    obj[i]["id"] = mysqldr[0].ToString();
+                    obj[i]["Group"] = mysqldr[1].ToString();
+                    i++;
+                }
+                mysqldr.Close();
+
+                i = 0;
+                //现在开始循环查询好友的用户名
+
+                foreach (var friendid in friendidList)
+                {
+                    command.CommandText = "select status from userstatus where id =" + friendid;
+                    //command.Parameters.AddWithValue("@id", friendid);
+                    mysqldr = command.ExecuteReader();
+                    mysqldr.Read();
+
+                    //将好友的用户名添加进JSON数组
+                    obj[i]["Status"] = mysqldr[0].ToString();
+                    i++;
+                    mysqldr.Close();
+                }
+
+                if (obj.Count == 0)
+                {
+                    mysqldr.Close();
+                    mySql.Close();
+                    return "null";
+                }
+                obj[0]["isOk"] = "True";
+                //if (obj.Count == 0)
+                //{
+                //    JObject temp = new JObject();
+                //    obj.Add(temp);
+                //    obj[0]["isOk"] = "False";
+
+                //}
+                //else
+                //{
+                //    obj[0]["isOk"] = "True";
+                //}
+            }
+            catch (Exception ex)
+            {
+                Console.Write("UserFriendStatus Error : " + ex);
+                obj[0]["isOk"] = "False";
+            }
+            String str = obj.ToString();
+            mySql.Close();
+            return str;
+        }
     }
 
     

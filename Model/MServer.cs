@@ -466,6 +466,9 @@ namespace SocketAsyncEventArgsOfficeDemo
             //释放接收SocktAsyncEventArg，然后可被重用到其他客户端(这里直接放入就行了)
             m_readWritePool.Push(e);
 
+            //因为断开了连接，所以将状态设为离线，即0
+            this.dataBaseQuery.SetStatus(((AsyncUserToken)e.UserToken).UserId, 0);
+            ((AsyncUserToken)e.UserToken).UserId = null;
             //从客户端列表中移除
             lock (m_clientList) { m_clientList.Remove((AsyncUserToken)e.UserToken); }
 
@@ -481,46 +484,66 @@ namespace SocketAsyncEventArgsOfficeDemo
             while (true)
             {
                 Thread.Sleep(3000);
-                if (m_clientList.Count > 0)
+                try
                 {
-                    //当客户端连接时，m_clienList的总数就会加1，但是此时还不知道用户的Id
-                    
-                    foreach (var mclien in m_clientList)
+                    if (m_clientList.Count > 0)
                     {
-                        //id不为空的时候才查询
-                        if (mclien.UserId != null)
+                        //当客户端连接时，m_clienList的总数就会加1，但是此时还不知道用户的Id
+
+                        foreach (var mclien in m_clientList)
                         {
-                            //查询该用户的信息表是否有信息，并发送给该用户,消息类型为5
-                            String sendStr = mServer.dataBaseQuery.UserMessageQuery(mclien.UserId);
-                            //有数据才发
-                            if (sendStr.Equals("null") != true)
+
+                            //id不为空的时候才查询
+                            if (mclien.UserId != null)
                             {
-                                mServer.SendMessage(5, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
+                                Console.Write("循环查询" + mclien.UserId + "的一系列消息");
+                                //MessageBox.Show(mclien.UserId);
+                                //查询该用户的信息表是否有信息，并发送给该用户,消息类型为5
+                                String sendStr = mServer.dataBaseQuery.UserMessageQuery(mclien.UserId);
+                                //有数据才发
+                                if (sendStr.Equals("null") != true)
+                                {
+                                    mServer.SendMessage(5, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
+                                }
+
+                                //查询该用户好友的状态，发送给该用户，消息类型为16
+                                sendStr = mServer.dataBaseQuery.UserFriendStatus(mclien.UserId);
+                                //有数据才发
+                                if (sendStr.Equals("null") != true)
+                                {
+                                    mServer.SendMessage(16, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
+                                }
+
+
+                                //TODO
+                                //新的好友和新的好友请求
+                                //改成该用户在线就发送，没有在线就直接保存在表里面
+                                //好友状态不应该保存在客户端本地数据库里面，每次更新数据库代价太大，而是动态保存
+
+                                ////查询该用户好友的信息
+                                //sendStr = mServer.dataBaseQuery.FriendInfoQuery(mclien.UserId);
+                                ////有数据才发
+                                //if (sendStr.Equals("null") != true)
+                                //{
+                                //    mServer.SendMessage(4, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
+                                //}
+
+                                //////查询该用户好友请求表
+                                //sendStr = mServer.dataBaseQuery.FriendRequestQuery(mclien.UserId);
+                                ////有数据才发
+                                //if (sendStr.Equals("null") != true)
+                                //{
+                                //    mServer.SendMessage(10, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
+                                //}
                             }
-
-                            //TODO
-                            //新的好友和新的好友请求
-                            //改成该用户在线就发送，没有在线就直接保存在表里面
-                            //好友状态不应该保存在客户端本地数据库里面，每次更新数据库代价太大，而是动态保存
-
-                            ////查询该用户好友的信息
-                            //sendStr = mServer.dataBaseQuery.FriendInfoQuery(mclien.UserId);
-                            ////有数据才发
-                            //if (sendStr.Equals("null") != true)
-                            //{
-                            //    mServer.SendMessage(4, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
-                            //}
-
-                            //////查询该用户好友请求表
-                            //sendStr = mServer.dataBaseQuery.FriendRequestQuery(mclien.UserId);
-                            ////有数据才发
-                            //if (sendStr.Equals("null") != true)
-                            //{
-                            //    mServer.SendMessage(10, sendStr, m_sendSaeaDic[mclien.Socket.RemoteEndPoint.ToString()]);
-                            //}
-                        }                       
+                        }
                     }
-                }              
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("ScanFriendTable Error : " + ex);
+                }
+                   
             }
         }
 
